@@ -2,7 +2,7 @@
  * BMI160 Accelerometer I2C Driver
  *
  * Author: James Jenkins
- * Email: james.jenkins745@pm.me
+ * Date created: Sept 18, 2025
  *
  * This file was written using Phil's Lab as a reference: https://www.youtube.com/watch?v=_JQAve05o_0
  * Datasheet: https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bmi160-ds000.pdf
