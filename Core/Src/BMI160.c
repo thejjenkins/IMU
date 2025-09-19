@@ -1,20 +1,33 @@
-/*
- * BMI160 Accelerometer I2C Driver
- *
- * Author: James Jenkins
- * Date created: Sept 18, 2025
- *
- * This file was written using Phil's Lab as a reference: https://www.youtube.com/watch?v=_JQAve05o_0
- * Datasheet: https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bmi160-ds000.pdf
- */
-
 #include "BMI160.h"
 
+uint8_t BMI160_Initialize( BMI160 *dev, I2C_HandleTypeDef *i2cHandle ) {
+	// Set struct parameters
+	dev->i2cHandle = i2cHandle;
 
-/*
- * INITIALIZATION
- */
-uint8_t BMI160_Initialize( BMI160 *dev, I2C_HandleTypeDef *i2cHandle );
+	dev->acc_mps2[0] = 0.0f;
+	dev->acc_mps2[1] = 0.0f;
+	dev->acc_mps2[2] = 0.0f;
+
+	dev->gyro_deg[0] = 0.0f;
+	dev->gyro_deg[1] = 0.0f;
+	dev->gyro_deg[2] = 0.0f;
+
+	// Store number of transaction errors (to be returned at end of function)
+	uint8_t errNum = 0;
+	HAL_StatusTypeDef status;
+
+	/*
+	 * Check device ID (datasheet pg. 49)
+	 */
+	uint8_t regData;
+
+	status = BMI160_ReadRegister( dev, BMI160_REG_CHIP_ID, &regData );
+	errNum += ( status != HAL_OK );
+
+	if ( regData != BMI160_CHIP_ID ) {
+		return 255;
+	}
+}
 
 /*
  * DATA ACQUISITION
