@@ -143,7 +143,6 @@ HAL_StatusTypeDef BMI160_ReadGyro(BMI160 *dev)
     int16_t raw_y = le16_to_s16(buf[2], buf[3]);
     int16_t raw_z = le16_to_s16(buf[4], buf[5]);
 
-    // Your struct calls this 'gyro_deg'; populate with deg/s
     dev->gyro_deg[0] = raw_x / lsb_per_dps;
     dev->gyro_deg[1] = raw_y / lsb_per_dps;
     dev->gyro_deg[2] = raw_z / lsb_per_dps;
