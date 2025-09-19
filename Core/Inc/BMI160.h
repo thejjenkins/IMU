@@ -129,6 +129,10 @@ typedef struct {
 
 	// Acceleration data (x,y,z) in m/s^2
 	float acc_mps2[3];
+
+	// Gyroscope data (x,y,z) in degrees
+	float gyro_deg[3];
+
 }BMI160;
 
 /*
