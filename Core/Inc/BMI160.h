@@ -22,7 +22,6 @@
 /*
  * REGISTERS - READ ONLY
  */
-#define BMI160_REG_
 #define BMI160_REG_CHIP_ID			0x00
 #define BMI160_REG_ERR_REG			0x02
 #define BMI160_REG_PMU_STATUS		0x03
@@ -130,7 +129,7 @@ typedef struct {
 	// Acceleration data (x,y,z) in m/s^2
 	float acc_mps2[3];
 
-	// Gyroscope data (x,y,z) in degrees
+	// Gyroscope data (x,y,z) in degrees/s
 	float gyro_deg[3];
 
 }BMI160;
@@ -145,13 +144,11 @@ uint8_t BMI160_Initialize( BMI160 *dev, I2C_HandleTypeDef *i2cHandle );
  */
 HAL_StatusTypeDef BMI160_ReadAccelerations( BMI160 *dev );
 HAL_StatusTypeDef BMI160_ReadGyro( BMI160 *dev );
-
 /*
  * LOW-LEVEL FUNCTIONS
  */
 HAL_StatusTypeDef BMI160_ReadRegister( BMI160 *dev, uint8_t reg, uint8_t *data );
 HAL_StatusTypeDef BMI160_ReadRegisters( BMI160 *dev, uint8_t reg, uint8_t *data, uint8_t length );
-
 HAL_StatusTypeDef BMI160_WriteRegister( BMI160 *dev, uint8_t reg, uint8_t *data );
 
 #endif
