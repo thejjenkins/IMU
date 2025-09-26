@@ -19,13 +19,13 @@ uint8_t BMI160_Initialize( BMI160 *dev, I2C_HandleTypeDef *i2cHandle ) {
 	/*
 	 * Check device ID (datasheet pg. 49)
 	 */
-	uint8_t regData;
-
+	uint8_t regData = 0x00;
+	uint8_t test = 0x00;
 	status = BMI160_ReadRegister( dev, BMI160_REG_CHIP_ID, &regData );
 	errNum += ( status != HAL_OK );
 
 	if ( regData != BMI160_CHIP_ID ) {
-		return 255;
+		return -1;
 	}
 
 	/*
@@ -33,13 +33,13 @@ uint8_t BMI160_Initialize( BMI160 *dev, I2C_HandleTypeDef *i2cHandle ) {
 	 * Default is suspend mode (at reset)
 	 * Set PMU mode of accelerometer and gyroscope to normal
 	 * Gyroscope data can only be processed in normal power mode (p. 21)
+	 * Approx. 80ms delay required for PMU mode change (p. 86)
 	 */
-	status = BMI160_ReadRegister( dev, BMI160_REG_PMU_STATUS, &regData );
 	regData = 0x15;
-	status = BMI160_WriteRegister( dev, BMI160_REG_CMD, &regData );
-	uint8_t test = 0x00;
-	status = BMI160_ReadRegister( dev, BMI160_REG_PMU_STATUS, &test );
+	status = BMI160_WriteRegister(dev, BMI160_REG_CMD, &regData);
+	HAL_Delay(85);
 	errNum += ( status != HAL_OK );
+	// status = BMI160_ReadRegister(dev, BMI160_REG_PMU_STATUS, &test);
 
 	/*
 	 * Accelerometer Configuration (p. 19)
@@ -49,10 +49,10 @@ uint8_t BMI160_Initialize( BMI160 *dev, I2C_HandleTypeDef *i2cHandle ) {
 	 * BMI160_REG_ACC_RANGE (0x41) default value is 0x03 (p. 48, 59)
 	 * Default configuration supports +-2g range
 	 */
-	status = BMI160_ReadRegister( dev, BMI160_REG_ACC_CONF, &regData );
-	errNum += ( status != HAL_OK );
-	status = BMI160_ReadRegister( dev, BMI160_REG_ACC_RANGE, &regData );
-	errNum += ( status != HAL_OK );
+//	status = BMI160_ReadRegister( dev, BMI160_REG_ACC_CONF, &regData );
+//	errNum += ( status != HAL_OK );
+//	status = BMI160_ReadRegister( dev, BMI160_REG_ACC_RANGE, &regData );
+//	errNum += ( status != HAL_OK );
 
 	/*
 	 * Gyroscope Configuration (p. 21)
@@ -62,21 +62,30 @@ uint8_t BMI160_Initialize( BMI160 *dev, I2C_HandleTypeDef *i2cHandle ) {
 	 * BMI160_REG_GYR_RANGE (0x43) default value is 0x00 (p. 48, 61)
 	 * Default configuration supports +-2000 deg/s
 	 */
-	status = BMI160_ReadRegister( dev, BMI160_REG_GYR_CONF, &regData );
-	errNum += ( status != HAL_OK );
-	status = BMI160_ReadRegister( dev, BMI160_REG_GYR_RANGE, &regData );
-	errNum += ( status != HAL_OK );
+//	status = BMI160_ReadRegister( dev, BMI160_REG_GYR_CONF, &regData );
+//	errNum += ( status != HAL_OK );
+//	status = BMI160_ReadRegister( dev, BMI160_REG_GYR_RANGE, &regData );
+//	errNum += ( status != HAL_OK );
 
 	/*
 	 * Interrupt Configuration (p. 65)
-	 * Enable the data ready (DRDY) interrupt then map it to INT1
 	 */
+	// Enable the data ready (DRDY) interrupt
 	regData = 0x10;
 	status = BMI160_WriteRegister( dev, BMI160_REG_INT_EN_1, &regData );
 	errNum += ( status != HAL_OK );
+	status = BMI160_ReadRegister( dev, BMI160_REG_INT_EN_1, &test );
 
+	// Map DRDY interrupt to INT1
 	regData = 0x80;
 	status = BMI160_WriteRegister( dev, BMI160_REG_INT_MAP_1, &regData );
+	errNum += ( status != HAL_OK );
+	status = BMI160_ReadRegister( dev, BMI160_REG_INT_MAP_1, &test );
+
+	// Enable INT1 output, push-pull, active-high
+	// bit3=int1_output_en=1, bit2=int1_od=0 (push-pull), bit1=int1_lvl=1 (active-high)
+	regData = 0x0A;
+	status = BMI160_WriteRegister(dev, BMI160_REG_INT_OUT_CTRL, &regData);
 	errNum += ( status != HAL_OK );
 
 	// if errNum is 0 then initialization was successful

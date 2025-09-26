@@ -118,7 +118,7 @@ int main(void)
   BMI160_Initialize(&acc, &hi2c1);
 
   // USB data buffer
-  char usbBuf[64];
+  char usbBuf[128];
 
   // Timers
   uint32_t timerLog = 0;
@@ -135,19 +135,28 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  if( accDataReady ) {
-		 // Read accelerometer
-		  BMI160_ReadAccelerations( &acc );
-		  // Read gyroscope
-		  BMI160_ReadGyro( &acc );
-
-		  // Clear flag
-		  accDataReady = 0;
-	  }
+//	  if( accDataReady ) {
+//		 // Read accelerometer
+//		  BMI160_ReadAccelerations( &acc );
+//		  // Read gyroscope
+//		  BMI160_ReadGyro( &acc );
+//
+//		  // Clear flag
+//		  accDataReady = 0;
+//	  }
+//	  uint8_t regData = 0x00;
+//	  uint8_t test = 0x00;
+//	  BMI160_ReadRegister(&acc, BMI160_REG_INT_STATUS_1, &regData);
+//	  BMI160_ReadRegister(&acc, BMI160_REG_STATUS, &test);
+	  BMI160_ReadAccelerations( &acc );
+	  BMI160_ReadGyro( &acc );
 
 	  // Send accelerometer and gyroscope readings via USB
 	  if( (HAL_GetTick() - timerLog) >= SAMPLE_TIME_LED_MS ) {
-		  uint8_t usbBufLen = snprintf(usbBuf, 64, "%.2f, %.2f, %.2f, %.2f, %.2f, %.2f\r\n", acc.acc_mps2[0], acc.acc_mps2[1], acc.acc_mps2[2], acc.gyro_deg[0], acc.gyro_deg[1], acc.gyro_deg[2]);
+		  uint8_t usbBufLen = snprintf(usbBuf, 128, "Acc (x,y,z) m/s^2: (%.2f,%.2f,%.2f). Gyro (x,y,z) deg/s: (%.2f,%.2f,%.2f)\r\n",
+				  acc.acc_mps2[0], acc.acc_mps2[1], acc.acc_mps2[2],
+				  acc.gyro_deg[0], acc.gyro_deg[1], acc.gyro_deg[2]);
+//		  uint8_t usbBufLen = snprintf(usbBuf, 64, "%x, %x\r\n", regData, test);
 
 		  UART_SEND_TXT(&huart2, usbBuf, usbBufLen);
 		  timerLog += SAMPLE_TIME_LOG_MS;
