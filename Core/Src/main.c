@@ -49,8 +49,8 @@ I2C_HandleTypeDef hi2c1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-BMI160		acc;
-uint8_t		accDataReady;
+BMI160			 acc;
+volatile uint8_t accDataReady;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -65,10 +65,8 @@ static void MX_USART2_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 void HAL_GPIO_EXTI_Callback( uint16_t GPIO_Pin ) {
-	if ( GPIO_Pin == GPIO_PIN_14 ) {
-		// Set data ready flag (checked in main while() loop
-		accDataReady = 1;
-	}
+	accDataReady = 1;
+	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
 }
 void UART_SEND_TXT(UART_HandleTypeDef *huart, char buffer[], int m)
 {
@@ -122,7 +120,6 @@ int main(void)
 
   // Timers
   uint32_t timerLog = 0;
-  uint32_t timerLED = 0;
 
   /* USER CODE END 2 */
 
@@ -135,37 +132,30 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-//	  if( accDataReady ) {
-//		 // Read accelerometer
-//		  BMI160_ReadAccelerations( &acc );
-//		  // Read gyroscope
-//		  BMI160_ReadGyro( &acc );
-//
-//		  // Clear flag
-//		  accDataReady = 0;
-//	  }
-//	  uint8_t regData = 0x00;
-//	  uint8_t test = 0x00;
-//	  BMI160_ReadRegister(&acc, BMI160_REG_INT_STATUS_1, &regData);
-//	  BMI160_ReadRegister(&acc, BMI160_REG_STATUS, &test);
-	  BMI160_ReadAccelerations( &acc );
-	  BMI160_ReadGyro( &acc );
+	  if( accDataReady ) {
+		 // Read accelerometer
+		  BMI160_ReadAccelerations( &acc );
+		  // Read gyroscope
+		  BMI160_ReadGyro( &acc );
+
+		  uint8_t usbBufLen = snprintf(usbBuf, 128, "Acc (x,y,z) m/s^2: (%.2f,%.2f,%.2f). Gyro (x,y,z) deg/s: (%.2f,%.2f,%.2f)\r\n",
+		  				  acc.acc_mps2[0], acc.acc_mps2[1], acc.acc_mps2[2],
+		  				  acc.gyro_deg[0], acc.gyro_deg[1], acc.gyro_deg[2]);
+		  UART_SEND_TXT(&huart2, usbBuf, usbBufLen);
+
+		  // Clear flag
+		  accDataReady = 0;
+	  }
 
 	  // Send accelerometer and gyroscope readings via USB
-	  if( (HAL_GetTick() - timerLog) >= SAMPLE_TIME_LED_MS ) {
-		  uint8_t usbBufLen = snprintf(usbBuf, 128, "Acc (x,y,z) m/s^2: (%.2f,%.2f,%.2f). Gyro (x,y,z) deg/s: (%.2f,%.2f,%.2f)\r\n",
-				  acc.acc_mps2[0], acc.acc_mps2[1], acc.acc_mps2[2],
-				  acc.gyro_deg[0], acc.gyro_deg[1], acc.gyro_deg[2]);
-//		  uint8_t usbBufLen = snprintf(usbBuf, 64, "%x, %x\r\n", regData, test);
-
-		  UART_SEND_TXT(&huart2, usbBuf, usbBufLen);
-		  timerLog += SAMPLE_TIME_LOG_MS;
-	  }
-
-	  if( (HAL_GetTick() - timerLED) >= SAMPLE_TIME_LED_MS ) {
-		  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-		  timerLED += SAMPLE_TIME_LED_MS;
-	  }
+//	  if( (HAL_GetTick() - timerLog) >= SAMPLE_TIME_LED_MS ) {
+//		  uint8_t usbBufLen = snprintf(usbBuf, 128, "Acc (x,y,z) m/s^2: (%.2f,%.2f,%.2f). Gyro (x,y,z) deg/s: (%.2f,%.2f,%.2f)\r\n",
+//				  acc.acc_mps2[0], acc.acc_mps2[1], acc.acc_mps2[2],
+//				  acc.gyro_deg[0], acc.gyro_deg[1], acc.gyro_deg[2]);
+//
+//		  //UART_SEND_TXT(&huart2, usbBuf, usbBufLen);
+//		  timerLog += SAMPLE_TIME_LOG_MS;
+//	  }
   }
   /* USER CODE END 3 */
 }
@@ -318,13 +308,26 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
-  /*Configure GPIO pin : PC14 */
-  GPIO_InitStruct.Pin = GPIO_PIN_14;
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+
+  /*Configure GPIO pins : PC14 PC1 */
+  GPIO_InitStruct.Pin = GPIO_PIN_14|GPIO_PIN_1;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : PA5 */
+  GPIO_InitStruct.Pin = GPIO_PIN_5;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
   /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 

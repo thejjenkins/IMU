@@ -35,11 +35,11 @@ uint8_t BMI160_Initialize( BMI160 *dev, I2C_HandleTypeDef *i2cHandle ) {
 	 * Gyroscope data can only be processed in normal power mode (p. 21)
 	 * Approx. 80ms delay required for PMU mode change (p. 86)
 	 */
-	regData = 0x15;
+	regData = 0x11;
 	status = BMI160_WriteRegister(dev, BMI160_REG_CMD, &regData);
 	HAL_Delay(85);
 	errNum += ( status != HAL_OK );
-	// status = BMI160_ReadRegister(dev, BMI160_REG_PMU_STATUS, &test);
+	status = BMI160_ReadRegister(dev, BMI160_REG_PMU_STATUS, &test);
 
 	/*
 	 * Accelerometer Configuration (p. 19)
@@ -53,6 +53,8 @@ uint8_t BMI160_Initialize( BMI160 *dev, I2C_HandleTypeDef *i2cHandle ) {
 //	errNum += ( status != HAL_OK );
 //	status = BMI160_ReadRegister( dev, BMI160_REG_ACC_RANGE, &regData );
 //	errNum += ( status != HAL_OK );
+	regData = 0x28;
+	status = BMI160_WriteRegister(dev, BMI160_REG_ACC_CONF, &regData);
 
 	/*
 	 * Gyroscope Configuration (p. 21)
@@ -66,6 +68,8 @@ uint8_t BMI160_Initialize( BMI160 *dev, I2C_HandleTypeDef *i2cHandle ) {
 //	errNum += ( status != HAL_OK );
 //	status = BMI160_ReadRegister( dev, BMI160_REG_GYR_RANGE, &regData );
 //	errNum += ( status != HAL_OK );
+	regData = 0x28;
+	status = BMI160_WriteRegister(dev, BMI160_REG_GYR_CONF, &regData);
 
 	/*
 	 * Interrupt Configuration (p. 65)
