@@ -2,7 +2,9 @@ import csv
 import numpy as np
 import pandas as pd
 
-df = pd.read_csv('imu_data.csv', header=0).astype(np.float32)  # Assuming the CSV has a header row
+path = 'IMU/imu_data.csv'
+df = pd.read_csv(path, header=0).astype(np.float32)
+# header = 0 indicates first row is column names
 
 class RingBuffer:
     def __init__(self, n_streams: int, capacity: int, dtype=np.float32):
