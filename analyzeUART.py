@@ -1,9 +1,11 @@
-import csv
+from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy.stats import norm
 
-path = 'IMU/imu_data.csv'
+path = 'imu_data.csv'
 df = pd.read_csv(path, header=0).astype(np.float32)
+df_original = df.copy()
 # header = 0 indicates first row is column names
 
 class RingBuffer:
@@ -47,4 +49,55 @@ for _, row in df.iterrows():
 window = rb.view_chronological()  # shape: (6, current_size)
 # Now you can run analysis on 'window' (e.g., means per stream):
 means = window.mean(axis=1)
-print(df.info())
+
+df_acc = pd.DataFrame(df, columns=df.columns[:3])
+df_gyr = pd.DataFrame(df, columns=df.columns[3:])
+x_axis = df.index.to_numpy()
+means_acc = [df_acc[c].mean() for c in df_acc.columns]
+stdevs_acc = [df_acc[c].std(ddof=0) for c in df_acc.columns]
+means_gyr = [df_gyr[c].mean() for c in df_gyr.columns]
+stdevs_gyr = [df_gyr[c].std(ddof=0) for c in df_gyr.columns]
+plt.figure()
+plt.plot(x_axis, df_acc.values)
+plt.xlabel("Sample index")
+plt.ylabel("Value")
+plt.legend(df_acc.columns)
+#plt.show()
+plt.figure()
+plt.plot(x_axis, df_gyr.values)
+plt.xlabel("Sample index")
+plt.ylabel("Value")
+plt.legend(df_gyr.columns)
+#plt.show()
+
+def global_range(means, stdevs, k=4, num=1000):
+    lowers = [m - k*s for m, s in zip(means, stdevs)]
+    uppers = [m + k*s for m, s in zip(means, stdevs)]
+    x_min, x_max = float(np.min(lowers)), float(np.max(uppers))
+    # If all stds are 0, expand a tiny bit to avoid a degenerate range
+    if not np.isfinite(x_min) or not np.isfinite(x_max) or x_min == x_max:
+        x_min, x_max = x_min - 1e-6, x_max + 1e-6
+    return np.linspace(x_min, x_max, num)
+x_acc = global_range(means_acc, stdevs_acc, k=4, num=df_acc.shape[0])
+plt.figure()
+for c, m, s in zip(df_acc.columns, means_acc, stdevs_acc):
+    y = norm.pdf(x_acc, loc=m, scale=s)
+    plt.plot(x_acc, y, label=f'{c}: μ={m:.3g}, σ={s:.3g}')
+plt.title('Accelerometer normal PDFs (x, y, z)')
+plt.xlabel('Value')
+plt.ylabel('Probability Density')
+plt.legend()
+plt.grid(True)
+#plt.show()
+x_gyr = global_range(means_gyr, stdevs_gyr, k=4, num=df_gyr.shape[0])
+plt.figure()
+for c, m, s in zip(df_gyr.columns, means_gyr, stdevs_gyr):
+    y = norm.pdf(x_gyr, loc=m, scale=s)
+    plt.plot(x_gyr, y, label=f'{c}: μ={m:.3g}, σ={s:.3g}')
+
+plt.title('Gyroscope normal PDFs (x, y, z)')
+plt.xlabel('Value')
+plt.ylabel('Probability Density')
+plt.legend()
+plt.grid(True)
+plt.show()
