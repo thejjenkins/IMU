@@ -1,8 +1,14 @@
 import serial
 import csv
 import time
+from datetime import datetime
 
-path = 'IMU/imu_data.csv'
+now = datetime.now()
+# timestamp_format = "%Y-%m-%d-%H_%M_%S" 
+timestamp_format = "%Y-%m-%d"
+formatted_timestamp = now.strftime(timestamp_format)
+
+path = f"data/{formatted_timestamp}_imu_data.csv"
 try:
     ser = serial.Serial(
         port='COM4',
@@ -17,7 +23,7 @@ try:
         writer = csv.writer(file)
         writer.writerow(['Accel_X', 'Accel_Y', 'Accel_Z', 'Gyro_X', 'Gyro_Y', 'Gyro_Z'])  # Header
         start_time = time.time()
-        while (time.time() - start_time) < 100:
+        while (time.time() - start_time) < 10:
             ser.reset_input_buffer()
             data = ser.readline().decode('utf-8').strip()  # Read a line and decode to string
             if data:

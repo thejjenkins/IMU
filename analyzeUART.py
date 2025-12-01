@@ -4,11 +4,14 @@ import pandas as pd
 from scipy.stats import norm
 from sklearn.preprocessing import StandardScaler
 from sklearn.mixture import GaussianMixture
+from scipy.signal import butter, filtfilt
+from scipy.ndimage import median_filter
 
-path = 'imu_data.csv'
-df = pd.read_csv(path, header=0).astype(np.float32)
+path = 'data/2025-11-07_imu_data.csv'
+df = pd.read_csv(path, header=0).astype(np.float32) # header = 0 indicates first row is column names
 df_original = df.copy()
-# header = 0 indicates first row is column names
+fs = 100.0  # ODR of IMU in Hz
+cutoff_hz = 10.0 # strictly less than Nyquist (fs/2 = 50 Hz)
 
 class RingBuffer:
     def __init__(self, n_streams: int, capacity: int, dtype=np.float32):
@@ -94,46 +97,86 @@ def plot_log_likelihood(scores, k, percentile):
     #plt.tight_layout()
     plt.show()
 
+def lpf_butter(x, cutoff_hz, order=3):
+    b, a = butter(order, cutoff_hz, btype='low', fs=fs)
+    return filtfilt(b, a, x, axis=0)
+
+def preprocess(acc_xyz, gyr_xyz, med_ksize=3):
+    # 1) median filter (odd ksize; paper didn’t fix the size)
+    acc_m = median_filter(acc_xyz, size=(med_ksize, 1), mode="reflect")
+    gyr_m = median_filter(gyr_xyz, size=(med_ksize, 1), mode="reflect")
+
+    # 2) 3rd-order LPF @ 10 Hz (noise reduction)
+    acc_lp = lpf_butter(acc_m, cutoff_hz, order=3)
+    gyr_lp = lpf_butter(gyr_m, cutoff_hz, order=3)
+
+    # 3) gravity/body split (Butterworth LPF @ 0.3 Hz; order not specified)
+    grav = lpf_butter(acc_lp, 0.3, order=3)   # order=3 is a common choice
+    body = acc_lp - grav
+    return body, grav, gyr_lp
+
 df_acc = pd.DataFrame(df, columns=df.columns[:3])
 df_gyr = pd.DataFrame(df, columns=df.columns[3:])
-x_axis = df.index.to_numpy()
-means_acc = [df_acc[c].mean() for c in df_acc.columns]
-stdevs_acc = [df_acc[c].std(ddof=0) for c in df_acc.columns]
-means_gyr = [df_gyr[c].mean() for c in df_gyr.columns]
-stdevs_gyr = [df_gyr[c].std(ddof=0) for c in df_gyr.columns]
-plot_timeseries(df_acc, "Accelerometer (x, y, z)")
-plot_timeseries(df_gyr, "Gyroscope (x, y, z)")
-plot_normal_distribution(df_acc, means_acc, stdevs_acc, "Accelerometer Normal PDFs (x, y, z)")
-plot_normal_distribution(df_gyr, means_gyr, stdevs_gyr, "Gyroscope Normal PDFs (x, y, z)")
+acc_body, acc_grav, gyr_filt = preprocess(df_acc.values, df_gyr.values, med_ksize=3)
+df_acc_body = pd.DataFrame(acc_body, columns=df_acc.columns)
+df_acc_grav = pd.DataFrame(acc_grav, columns=df_acc.columns)
+df_gyr_filt = pd.DataFrame(gyr_filt, columns=df_gyr.columns)
 
-scaler = StandardScaler()
-X = scaler.fit_transform(df.values)
-lowest_bic = np.inf
-best_gmm, best_k = None, None
-percentile = 0.2 # Anomaly threshold as lower percentile of log-likelihoods
-for k in range(1, 10):
-    gmm = GaussianMixture(n_components=k, covariance_type="full", random_state=42)
-    gmm.fit(X)
-    bic = gmm.bic(X)
-    if bic < lowest_bic:
-        lowest_bic = bic
-        best_gmm = gmm
-        best_k = k
-loglik = best_gmm.score_samples(X)
-scores = pd.Series(loglik, index=df.index, name="log_likelihood")
+scaler_acc = StandardScaler().fit(df_acc_body.values)
+X_acc = scaler_acc.transform(df_acc_body.values)
+scaler_gyr = StandardScaler().fit(df_gyr_filt.values)
+X_gyr = scaler_gyr.transform(df_gyr_filt.values)
+percentile = 1 # Anomaly threshold as lower percentile of log-likelihoods
+lowest_bic_acc = np.inf
+lowest_bic_gyr = np.inf
+best_gmm_acc, best_k_acc = None, None
+best_gmm_gyr, best_k_gyr = None, None
+biclist_acc = []
+biclist_gyr = []
+max_k = 10
+
+for k in range(1, max_k): # i want k to be the number of clusters
+    gmm = GaussianMixture(n_components=k, covariance_type="spherical")
+    gmm.fit(X_acc)
+    bic = gmm.bic(X_acc)
+    biclist_acc.append(bic)
+    if bic < lowest_bic_acc:
+        lowest_bic_acc = bic
+        best_gmm_acc = gmm
+        best_k_acc = k
+    gmm.fit(X_gyr)
+    bic = gmm.bic(X_gyr)
+    biclist_gyr.append(bic)
+    if bic < lowest_bic_gyr:
+        lowest_bic_gyr = bic
+        best_gmm_gyr = gmm
+        best_k_gyr = k
+
+plt.plot(range(1,max_k), biclist_acc, marker='o')
+plt.plot(range(1,max_k), biclist_gyr, marker='o')
+plt.legend(['Accelerometer', 'Gyroscope'])
+plt.title("BIC vs Number of GMM Components\nSpherical Covariance")
+plt.show()
+
+loglik_acc = best_gmm_acc.score_samples(X_acc)
+loglik_gyr = best_gmm_gyr.score_samples(X_gyr)
+scores = pd.DataFrame({"acc_log_likelihood": loglik_acc, "gyr_log_likelihood": loglik_gyr}, index=df.index)
+#scores = pd.Series(loglik, index=df.index, name="log_likelihood")
 threshold = np.percentile(scores.values, percentile)
 is_anom = scores < threshold
-plot_log_likelihood(scores, best_k, percentile)
-out = pd.DataFrame(index=df.index)
-out["log_likelihood"] = scores
-out["is_anomaly"] = is_anom
-out_path = 'out.csv'
-out.to_csv(out_path, index=True)
+
+best_k_total = [best_k_acc, best_k_gyr]
+for col,k in zip(scores.columns, best_k_total):
+    plot_log_likelihood(scores[col], k, percentile)
+scores["is_anom_acc"] = is_anom["acc_log_likelihood"]
+scores["is_anom_gyr"] = is_anom["gyr_log_likelihood"]
+out_path = 'data/out.csv'
+scores.to_csv(out_path, index=True)
 print("=== GMM Anomaly Detection Summary ===")
 print(f"Input rows: {len(df_original)}")
 print(f"Features used: {df.shape[1]}")
-print(f"Selected components (BIC): {best_k}")
+print(f"Selected components (BIC): Acc = {best_k_acc} clusters, Gyr = {best_k_gyr} clusters")
 print(f"Threshold percentile: {percentile}")
 print(f"Threshold value: {threshold:.6f}")
-print(f"Anomalies flagged: {int(is_anom.sum())}")
+print(f"Anomalies flagged: {int(is_anom['acc_log_likelihood'].sum()+is_anom['gyr_log_likelihood'].sum())}")
 print(f"Output CSV: {out_path}")
