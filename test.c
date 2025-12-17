@@ -33,13 +33,12 @@ void FirstOrderIIR_Init(FirstOrderIIR *filt) {
 
 float FirstOrderIIR_Update(FirstOrderIIR *filt, float in) {
     filt->out = ALPHA*in + (1.0f - ALPHA)*filt->out;
-    return filt->out;
+    // return filt->out;
 }
 
 /**
- * @brief Updates the ring buffer with new accelerometer and gyroscope data.
- * @param acc Array of 3 floats representing accelerometer data (x, y, z)
- * @param gyro Array of 3 floats representing gyroscope data (x, y, z)
+ * @brief Updates the ring buffer with new accelerometer or gyroscope data.
+ * @param data Array of 3 floats representing accelerometer or gyroscope data (x, y, z)
  * @param window Pointer to the ring buffer struct of size 3 floats
  */
 void ringBuffer(float data[3], RollingWindow* window) {
@@ -78,29 +77,6 @@ void medFilter(RollingWindow *window) {
         }
     }
 }
-// void medFilter(RollingWindow* window) {
-//     float *buf = (float*)window;
-//     for (int i=0; i<MEMORY_BLOCKS; i++) {
-//         if(buf[i*SAMPLES_PER_AXIS] > buf[i*SAMPLES_PER_AXIS+1]) { // a > b
-//             if(buf[i*SAMPLES_PER_AXIS+2] > buf[i*SAMPLES_PER_AXIS+1]) { // c > b
-//                 if(buf[i*SAMPLES_PER_AXIS] > buf[i*SAMPLES_PER_AXIS+2]) { // a > c
-//                     buf[i*SAMPLES_PER_AXIS+1] = buf[i*SAMPLES_PER_AXIS+2]; // return c
-//                 } else {
-//                     buf[i*SAMPLES_PER_AXIS+1] = buf[i*SAMPLES_PER_AXIS]; // return a
-//                 }
-//             }
-//         } else { // a <= b
-//             if(buf[i*SAMPLES_PER_AXIS+2] < buf[i*SAMPLES_PER_AXIS+1]) { // c < b
-//                 if(buf[i*SAMPLES_PER_AXIS] < buf[i*SAMPLES_PER_AXIS+2]) { // a < c
-//                     buf[i*SAMPLES_PER_AXIS+1] = buf[i*SAMPLES_PER_AXIS+2]; // return c
-//                 } else {
-//                     buf[i*SAMPLES_PER_AXIS+1] = buf[i*SAMPLES_PER_AXIS]; // return a
-//                 }
-//             }
-//         }
-//     }
-// }
-
 
 float s_window[WINDOW_LENGTH] = {
     17.0f,  3.0f, 24.0f,  9.0f, 29.0f, 
@@ -142,6 +118,7 @@ int main() {
         printf("accel[%d].v[1] = %.3f\n", i, accel[i].v[1]);
         printf("accel[%d].v[2] = %.3f\n", i, accel[i].v[2]);
     }
+    printf("***************\n");
     ringBuffer(acc.acc_mps2, &accel[0]);
     ringBuffer(acc.gyro_deg, &gyro[0]);
     for (int i = 0; i < SAMPLES_PER_AXIS; i++) {
@@ -149,12 +126,20 @@ int main() {
         printf("accel[%d].v[1] = %.3f\n", i, accel[i].v[1]);
         printf("accel[%d].v[2] = %.3f\n", i, accel[i].v[2]);
     }
+    printf("***************\n");
     medFilter(&accel[0]);
     medFilter(&gyro[0]);
     for (int i = 0; i < SAMPLES_PER_AXIS; i++) {
         printf("accel[%d].v[0] = %.3f\n", i, accel[i].v[0]);
         printf("accel[%d].v[1] = %.3f\n", i, accel[i].v[1]);
         printf("accel[%d].v[2] = %.3f\n", i, accel[i].v[2]);
+    }
+    printf("***************\n");
+    for (int axis = 0; axis < 3; ++axis) {
+        FirstOrderIIR_Update(&accIIR[axis], accel[1].v[axis]);
+        FirstOrderIIR_Update(&gyroIIR[axis], gyro[1].v[axis]);
+        printf("Filtered acc axis %d: %.3f\n", axis, accIIR[axis].out);
+        printf("Filtered gyro axis %d: %.3f\n", axis, gyroIIR[axis].out);
     }
 
 
