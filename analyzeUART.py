@@ -8,8 +8,6 @@ from sklearn.mixture import GaussianMixture
 path = 'data/2025-12-13_imu_data.csv'
 df = pd.read_csv(path, header=0).astype(np.float32) # header = 0 indicates first row is column names
 df_original = df.copy()
-fs = 100.0  # ODR of IMU in Hz
-cutoff_hz = 10.0 # strictly less than Nyquist (fs/2 = 50 Hz)
 
 def global_range(means, stdevs, k=4, num=1000):
     lowers = [m - k*s for m, s in zip(means, stdevs)]
