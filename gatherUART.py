@@ -32,6 +32,23 @@ try:
                 writer.writerow(fields)
                 file.flush()
     
+    # remove rows containing incomplete data
+    temp_list = []
+    with open(path, mode='r', newline='') as infile:
+        reader = csv.reader(infile)
+        next(reader)  # Skip header
+        for row in reader:
+            if len(row) != 6:
+                continue
+            row = [row[i] if "." in row[i] else None for i in range(6)]
+            if None in row:
+                continue
+            temp_list.append(row)
+    with open(path, mode='w', newline='') as outfile:
+        writer = csv.writer(outfile)
+        writer.writerow(['Accel_X', 'Accel_Y', 'Accel_Z', 'Gyro_X', 'Gyro_Y', 'Gyro_Z'])  # Header
+        writer.writerows(temp_list)
+
 except KeyboardInterrupt:
     print("Program interrupted by user.")
 finally:
