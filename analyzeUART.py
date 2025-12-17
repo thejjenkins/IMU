@@ -4,8 +4,6 @@ import pandas as pd
 from scipy.stats import norm
 from sklearn.preprocessing import StandardScaler
 from sklearn.mixture import GaussianMixture
-from scipy.signal import butter, filtfilt
-from scipy.ndimage import median_filter
 
 path = 'data/2025-12-13_imu_data.csv'
 df = pd.read_csv(path, header=0).astype(np.float32) # header = 0 indicates first row is column names
@@ -55,36 +53,13 @@ def plot_log_likelihood(scores, k, percentile, threshold, imu):
     #plt.tight_layout()
     plt.show()
 
-def lpf_butter(x, cutoff_hz, order=1):
-    b, a = butter(order, cutoff_hz, btype='low', fs=fs)
-    return filtfilt(b, a, x, axis=0)
-
-def preprocess(acc_xyz, gyr_xyz, med_ksize=3):
-    # 1) median filter (odd ksize; paper didn’t fix the size)
-    acc_m = median_filter(acc_xyz, size=(med_ksize, 1), mode="reflect")
-    gyr_m = median_filter(gyr_xyz, size=(med_ksize, 1), mode="reflect")
-
-    # 2) 3rd-order LPF @ 10 Hz (noise reduction)
-    acc_lp = lpf_butter(acc_m, cutoff_hz, order=1)
-    gyr_lp = lpf_butter(gyr_m, cutoff_hz, order=1)
-
-    # 3) gravity/body split (Butterworth LPF @ 0.3 Hz; order not specified)
-    # grav = lpf_butter(acc_lp, 0.3, order=3)   # order=3 is a common choice
-    # body = acc_lp - grav
-    # return body, grav, gyr_lp
-    return acc_lp, gyr_lp
-
 df_acc = pd.DataFrame(df, columns=df.columns[:3])
 df_gyr = pd.DataFrame(df, columns=df.columns[3:])
-acc_body, gyr_filt = preprocess(df_acc.values, df_gyr.values, med_ksize=3)
-df_acc_body = pd.DataFrame(acc_body, columns=df_acc.columns)
-# df_acc_grav = pd.DataFrame(acc_grav, columns=df_acc.columns)
-df_gyr_filt = pd.DataFrame(gyr_filt, columns=df_gyr.columns)
 
-scaler_acc = StandardScaler().fit(df_acc_body.values)
-X_acc = scaler_acc.transform(df_acc_body.values)
-scaler_gyr = StandardScaler().fit(df_gyr_filt.values)
-X_gyr = scaler_gyr.transform(df_gyr_filt.values)
+scaler_acc = StandardScaler().fit(df_acc.values)
+X_acc = scaler_acc.transform(df_acc.values)
+scaler_gyr = StandardScaler().fit(df_gyr.values)
+X_gyr = scaler_gyr.transform(df_gyr.values)
 percentile = 1 # Anomaly threshold as lower percentile of log-likelihoods
 lowest_bic_acc = np.inf
 lowest_bic_gyr = np.inf
@@ -95,7 +70,7 @@ biclist_gyr = []
 max_k = 10
 
 for k in range(1, max_k): # i want k to be the number of clusters
-    gmm = GaussianMixture(n_components=k, covariance_type="spherical")
+    gmm = GaussianMixture(n_components=k, covariance_type="spherical", random_state=0)
     gmm.fit(X_acc)
     bic = gmm.bic(X_acc)
     biclist_acc.append(bic)
